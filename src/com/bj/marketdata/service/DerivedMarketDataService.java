@@ -4,7 +4,9 @@ import com.bj.marketdata.entity.InstrumentUpdateType;
 import com.bj.marketdata.entity.MarketDataRawUpdate;
 import com.bj.marketdata.source.MarketDataListener;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
@@ -19,6 +21,7 @@ public final class DerivedMarketDataService implements MarketDataListener {
 
     private final String[] instrumentsBySlot;
     private final MarketDataUpdate[] updatesBySlot;
+    private final List<DerivedMarketDataUpdateListener> derivedUpdateListeners = new ArrayList<>(4);
     private final int slotMask;
     private final int maxDistinctInstruments;
     private int distinctInstruments;
@@ -54,6 +57,22 @@ public final class DerivedMarketDataService implements MarketDataListener {
         final MarketDataUpdate conflated = updatesBySlot[slot];
         if (!conflated.applyRawValue(update.inputType(), update.value(), update.updateTimeMillis())) {
             rejectedUpdateCount++;
+            return;
+        }
+        if (derivedUpdateListeners.isEmpty()) {
+            return;
+        }
+
+        final DerivedMarketData derivedMarketData = new DerivedMarketData(
+                conflated.lastUpdatedMillis(),
+                conflated.instrument(),
+                conflated.baseRate(),
+                conflated.spread(),
+                conflated.adjustment(),
+                deriveValue(conflated.baseRate(), conflated.spread(), conflated.adjustment())
+        );
+        for (final DerivedMarketDataUpdateListener listener : derivedUpdateListeners) {
+            listener.onUpdate(derivedMarketData);
         }
     }
 
@@ -86,6 +105,14 @@ public final class DerivedMarketDataService implements MarketDataListener {
 
     public long rejectedUpdateCount() {
         return rejectedUpdateCount;
+    }
+
+    public void addDerivedMarketDataUpdateListener(final DerivedMarketDataUpdateListener listener) {
+        derivedUpdateListeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public static double deriveValue(final double baseRate, final double spread, final double adjustment) {
+        return baseRate + spread + adjustment;
     }
 
     private int findOrAllocateSlot(final String instrument) {

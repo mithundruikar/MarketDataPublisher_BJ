@@ -4,7 +4,6 @@ import com.bj.marketdata.MarketDataPublisherApplication;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
@@ -15,6 +14,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DownstreamPublisherTest {
     @Test
@@ -25,8 +25,8 @@ class DownstreamPublisherTest {
         eventLoopThread.start();
 
         try (final Socket socket = new Socket(
-                wiring.consumerHandler().boundLogonAddress().getHostString(),
-                wiring.consumerHandler().boundLogonAddress().getPort());
+                wiring.consumerConnectionHandler().boundLogonAddress().getHostString(),
+                wiring.consumerConnectionHandler().boundLogonAddress().getPort());
              final OutputStreamWriter writer = new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8);
              final BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(
                      socket.getInputStream(),
@@ -37,16 +37,22 @@ class DownstreamPublisherTest {
 
             final String response = reader.readLine();
             assertNotNull(response, "expected logon response");
+            final ConsumerLogonResponse logonResponse = ConsumerLogonResponse.fromWireMessage(response);
             assertEquals(
-                    wiring.consumerHandler().boundUpdatesAddress().getHostString()
-                            + ":" + wiring.consumerHandler().boundUpdatesAddress().getPort(),
-                    response,
+                    wiring.consumerConnectionHandler().boundUpdatesAddress().getHostString(),
+                    logonResponse.updatesHost(),
+                    "unexpected logon response updates host"
+            );
+            assertEquals(
+                    wiring.consumerConnectionHandler().boundUpdatesAddress().getPort(),
+                    logonResponse.updatesPort(),
                     "unexpected logon response with udp updates endpoint"
             );
+            assertTrue(logonResponse.subscriptionId() > 0L, "expected positive subscription id");
 
-            assertEquals(1, wiring.consumerHandler().subscriptionCount(), "expected one subscription after logon");
+            assertEquals(1, wiring.consumerConnectionHandler().subscriptionCount(), "expected one subscription after logon");
         } finally {
-            wiring.consumerHandler().close();
+            wiring.consumerConnectionHandler().close();
             wiring.eventLoop().close();
             eventLoopThread.join(2_000);
         }

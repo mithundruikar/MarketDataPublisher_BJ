@@ -4,6 +4,9 @@ import com.bj.marketdata.entity.InstrumentUpdateType;
 import com.bj.marketdata.entity.MarketDataRawUpdate;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,5 +42,28 @@ class DerivedMarketDataServiceTest {
 
         assertEquals(1L, service.rejectedUpdateCount(), "unsupported input type should increment rejection count");
         assertTrue(service.getState("CHARLIE").isEmpty(), "invalid update should not create state");
+    }
+
+    @Test
+    void shouldNotifyDerivedMarketDataListenersWithDerivedValue() {
+        final DerivedMarketDataService service = new DerivedMarketDataService(8);
+        final List<DerivedMarketData> receivedUpdates = new ArrayList<>();
+        service.addDerivedMarketDataUpdateListener(receivedUpdates::add);
+
+        service.applyUpdate(new MarketDataRawUpdate(1L, 3_000L, "file-C", "DELTA", InstrumentUpdateType.BASE_RATE, 4.2));
+        service.applyUpdate(new MarketDataRawUpdate(2L, 3_010L, "file-C", "DELTA", InstrumentUpdateType.SPREAD, 0.3));
+        service.applyUpdate(new MarketDataRawUpdate(3L, 3_020L, "file-C", "DELTA", InstrumentUpdateType.ADJUSTMENT, -0.1));
+
+        assertEquals(3, receivedUpdates.size(), "each valid update should produce a derived update callback");
+        final DerivedMarketData latest = receivedUpdates.get(receivedUpdates.size() - 1);
+        assertEquals(3_020L, latest.timestampMillis(), "timestamp should match last update millis");
+        assertEquals("DELTA", latest.instrument(), "instrument mismatch");
+        assertEquals(4.4, latest.derivedValue(), 1e-9, "derived value mismatch");
+        assertEquals(
+                4.4,
+                DerivedMarketDataService.deriveValue(latest.baseRate(), latest.spread(), latest.adjustment()),
+                1e-9,
+                "service deriveValue formula mismatch"
+        );
     }
 }

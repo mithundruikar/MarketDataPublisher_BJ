@@ -5,7 +5,6 @@ import com.bj.marketdata.entity.MarketDataRawUpdate;
 import com.bj.marketdata.source.MarketDataListener;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 import java.nio.file.Files;
@@ -49,7 +48,7 @@ class MarketDataPublisherBootstrapTest {
             assertEquals(1L, firstUpdate[0].sequence(), "expected source-level sequence to start at 1");
             assertNotNull(wiring.udpSource(), "udp source should be wired");
         } finally {
-            wiring.consumerHandler().close();
+            wiring.consumerConnectionHandler().close();
             wiring.eventLoop().close();
         }
     }
