@@ -1,9 +1,9 @@
 package com.bj.marketdata.source;
 
-import com.bj.marketdata.service.RawMarketUpdate;
+import com.bj.marketdata.entity.MarketDataRawUpdate;
 
 public interface MarketDataListener {
-    void onUpdate(RawMarketUpdate update);
+    void onUpdate(MarketDataRawUpdate update);
 
     default void onRejected(String rawRecord, String reason) {
     }

@@ -1,6 +1,6 @@
-package com.bj.marketdata.service;
+package com.bj.marketdata.entity;
 
-public record RawMarketUpdate(
+public record MarketDataRawUpdate(
         long timestampMs,
         String instrument,
         String inputType,
