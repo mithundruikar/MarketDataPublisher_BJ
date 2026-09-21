@@ -20,7 +20,8 @@ class DownstreamPublisherTest {
     @Test
     void shouldHandleConsumerLogonAndRespondWithUpdatesEndpoint() throws Exception {
         final Properties properties = loadProperties();
-        final MarketDataPublisherApplication.Wiring wiring = MarketDataPublisherApplication.wire(properties);
+        final MarketDataPublisherApplication application = new MarketDataPublisherApplication();
+        final MarketDataPublisherApplication.Wiring wiring = application.wire(properties);
         final Thread eventLoopThread = new Thread(wiring.eventLoop(), "downstream-publisher-event-loop");
         eventLoopThread.start();
 

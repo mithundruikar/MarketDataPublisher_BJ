@@ -1,5 +1,6 @@
 package com.bj.marketdata.consumer;
 
+import com.bj.marketdata.MarketDataPublisherApplication;
 import com.bj.marketdata.multiplexer.EventLoop;
 import com.bj.marketdata.multiplexer.IOHandler;
 import com.bj.marketdata.service.DerivedMarketDataUpdateListener;
@@ -16,11 +17,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 public final class ConsumerConnectionHandler implements IOHandler, AutoCloseable {
-    private static final String LOGON_PROPERTY = "consumer.connect.logon";
-    private static final String UPDATES_PROPERTY = "consumer.connect.updates";
+    public static final String LOGON_PROPERTY = MarketDataPublisherApplication.CONSUMER_CONNECT_LOGON_PROPERTY;
+    public static final String UPDATES_PROPERTY = MarketDataPublisherApplication.CONSUMER_CONNECT_UPDATES_PROPERTY;
     private static final int REQUEST_BUFFER_SIZE_BYTES = 512;
+    private static final Logger LOGGER = Logger.getLogger(ConsumerConnectionHandler.class.getName());
 
     private final EventLoop eventLoop;
     private final String consumerConnectLogon;
@@ -119,6 +122,9 @@ public final class ConsumerConnectionHandler implements IOHandler, AutoCloseable
 
         final long subscriptionId = nextSubscriptionId++;
         subscriptionHandler.registerSubscription(logonRequest.clientId(), subscriptionId);
+        logInfo("Consumer logon accepted: clientId=" + logonRequest.clientId()
+                + ", subscriptionId=" + subscriptionId
+                + ", remoteAddress=" + clientChannel.getRemoteAddress());
 
         final ConsumerLogonResponse logonResponse = new ConsumerLogonResponse(
                 subscriptionId,
@@ -177,6 +183,10 @@ public final class ConsumerConnectionHandler implements IOHandler, AutoCloseable
         this.boundUpdatesAddress = (InetSocketAddress) updatesDatagramChannel.getLocalAddress();
         this.subscriptionHandler = new SubscriptionHandler(eventLoop, updatesDatagramChannel);
         eventLoop.register(updatesDatagramChannel, SelectionKey.OP_READ, subscriptionHandler);
+        logInfo("Service ready for consumers: tcpLogonEndpoint="
+                + boundLogonAddress.getHostString() + ":" + boundLogonAddress.getPort()
+                + ", udpUpdatesEndpoint="
+                + boundUpdatesAddress.getHostString() + ":" + boundUpdatesAddress.getPort());
     }
 
     private void closeClient(final SocketChannel clientChannel, final SelectionKey key) throws IOException {
@@ -247,4 +257,9 @@ public final class ConsumerConnectionHandler implements IOHandler, AutoCloseable
         }
         return new InetSocketAddress(host, port);
     }
+
+    private static void logInfo(final String message) {
+        LOGGER.info(message);
+    }
+
 }

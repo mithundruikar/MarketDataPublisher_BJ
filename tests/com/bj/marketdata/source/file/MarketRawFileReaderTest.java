@@ -1,11 +1,14 @@
 package com.bj.marketdata.source.file;
 
-import com.bj.marketdata.entity.InstrumentUpdateType;
-import com.bj.marketdata.entity.MarketDataRawUpdate;
+import com.bj.marketdata.source.InstrumentUpdateType;
+import com.bj.marketdata.source.MarketDataRawUpdate;
+import com.bj.marketdata.value.ScaledPrice;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +17,7 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MarketRawFileReaderTest {
     @Test
@@ -28,13 +32,13 @@ class MarketRawFileReaderTest {
         assertEquals("file", first.source(), "unexpected source name");
         assertEquals("ALPHA", first.instrument(), "unexpected first instrument");
         assertEquals(InstrumentUpdateType.BASE_RATE, first.inputType(), "unexpected first input type");
-        assertEquals(4.6394, first.value(), 1e-9, "unexpected first value");
+        assertEquals(ScaledPrice.parse("4.6394"), first.value(), "unexpected first value");
 
         final MarketDataRawUpdate last = updates.get(updates.size() - 1);
         assertEquals(1_733_011_200_382L, last.updateTimeMillis(), "unexpected last update timestamp");
         assertEquals("DELTA", last.instrument(), "unexpected last instrument");
         assertEquals(InstrumentUpdateType.BASE_RATE, last.inputType(), "unexpected last input type");
-        assertEquals(4.6554, last.value(), 1e-9, "unexpected last value");
+        assertEquals(ScaledPrice.parse("4.6554"), last.value(), "unexpected last value");
 
         for (int i = 1; i < updates.size(); i++) {
             final long prev = updates.get(i - 1).sequence();
@@ -58,6 +62,37 @@ class MarketRawFileReaderTest {
         assertNotNull(firstRun2, "expected first update in second run");
         assertEquals(1L, firstRun2.sequence(), "sequence should restart for a different source reader");
         assertEquals("file-B", firstRun2.source(), "reader should stamp its source name");
+    }
+
+    @Test
+    void shouldRejectInvalidNumericLineAndContinueReading() throws IOException {
+        final Path tempFile = Files.createTempFile("market-raw-invalid-numeric-", ".csv");
+        try {
+            final String content = String.join("\n",
+                    "timestamp,instrument,input_type,value",
+                    "1733011200000,ALPHA,base_rate,4.1000",
+                    "1733011208037,ECHO,adjustment,NaN",
+                    "1733011209000,ECHO,adjustment,0.1200"
+            ) + "\n";
+            Files.writeString(tempFile, content, StandardCharsets.UTF_8);
+
+            final MarketRawFileReader reader = new MarketRawFileReader("file", tempFile);
+            final MarketRawFileReader.ReadResult first = reader.readNext();
+            assertNotNull(first.update(), "expected first valid update");
+            assertNull(first.rejectionReason(), "first line should not be rejected");
+
+            final MarketRawFileReader.ReadResult invalid = reader.readNext();
+            assertEquals("invalid_numeric", invalid.rejectionReason(), "invalid numeric line should be rejected");
+            assertEquals("1733011208037,ECHO,adjustment,NaN", invalid.rawRecord(), "raw rejected line mismatch");
+
+            final MarketRawFileReader.ReadResult third = reader.readNext();
+            assertNotNull(third.update(), "reader should continue after invalid numeric line");
+            assertEquals(2L, third.update().sequence(), "sequence should advance only for valid updates");
+            assertEquals(1_733_011_209_000L, third.update().updateTimeMillis(), "unexpected third update timestamp");
+            assertEquals(ScaledPrice.parse("0.1200"), third.update().value(), "unexpected third update value");
+        } finally {
+            assertTrue(Files.deleteIfExists(tempFile) || !Files.exists(tempFile), "temporary file should be cleaned up");
+        }
     }
 
     private static List<MarketDataRawUpdate> readAllUpdates(final MarketRawFileReader reader) throws IOException {
@@ -88,7 +123,7 @@ class MarketRawFileReaderTest {
 
     private static Path sampleFilePath() throws URISyntaxException {
         return Path.of(Objects.requireNonNull(
-                MarketRawFileReaderTest.class.getClassLoader().getResource("market-raw-updates-sample.tsv"))
+                MarketRawFileReaderTest.class.getClassLoader().getResource("market-raw-updates-sample.csv"))
                 .toURI());
     }
 }

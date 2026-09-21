@@ -1,4 +1,4 @@
-package com.bj.marketdata.entity;
+package com.bj.marketdata.source;
 
 public record MarketDataRawUpdate(
         long sequence,
@@ -6,6 +6,6 @@ public record MarketDataRawUpdate(
         String source,
         String instrument,
         InstrumentUpdateType inputType,
-        double value
+        long value
 ) {
 }

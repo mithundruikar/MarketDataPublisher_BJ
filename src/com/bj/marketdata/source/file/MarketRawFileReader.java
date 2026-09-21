@@ -1,7 +1,8 @@
 package com.bj.marketdata.source.file;
 
-import com.bj.marketdata.entity.InstrumentUpdateType;
-import com.bj.marketdata.entity.MarketDataRawUpdate;
+import com.bj.marketdata.source.InstrumentUpdateType;
+import com.bj.marketdata.source.MarketDataRawUpdate;
+import com.bj.marketdata.value.ScaledPrice;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -55,39 +56,42 @@ final class MarketRawFileReader {
             return ReadResult.rejected(line, "invalid_format");
         }
 
+        final long timestampMs;
         try {
-            final long timestampMs = Long.parseLong(parsed.timestampRaw());
-            final double value = Double.parseDouble(parsed.valueRaw());
-            final InstrumentUpdateType updateType = InstrumentUpdateType.fromWireValue(parsed.inputType());
-            if (updateType == InstrumentUpdateType.UNKNOWN) {
-                return ReadResult.rejected(line, "invalid_input_type");
-            }
-            final long sequence = ++sourceSequence;
-            return ReadResult.update(new MarketDataRawUpdate(
-                    sequence,
-                    timestampMs,
-                    sourceName,
-                    parsed.instrument(),
-                    updateType,
-                    value
-            ));
+            timestampMs = Long.parseLong(parsed.timestampRaw());
         } catch (NumberFormatException ex) {
             return ReadResult.rejected(line, "invalid_numeric");
         }
+
+        final long value;
+        try {
+            value = ScaledPrice.parse(parsed.valueRaw());
+        } catch (IllegalArgumentException ex) {
+            return ReadResult.rejected(line, "invalid_numeric");
+        }
+
+        final InstrumentUpdateType updateType = InstrumentUpdateType.fromWireValue(parsed.inputType());
+        if (updateType == InstrumentUpdateType.UNKNOWN) {
+            return ReadResult.rejected(line, "invalid_input_type");
+        }
+        final long sequence = ++sourceSequence;
+        return ReadResult.update(new MarketDataRawUpdate(
+                sequence,
+                timestampMs,
+                sourceName,
+                parsed.instrument(),
+                updateType,
+                value
+        ));
     }
 
     private ParsedFields parseLine(String line) {
-        final char delimiter = detectDelimiter(line);
-        if (delimiter == 0) {
-            return null;
-        }
-
-        final int c1 = line.indexOf(delimiter);
+        final int c1 = line.indexOf(',');
         if (c1 < 0) return null;
-        final int c2 = line.indexOf(delimiter, c1 + 1);
+        final int c2 = line.indexOf(',', c1 + 1);
         if (c2 < 0) return null;
-        final int c3 = line.indexOf(delimiter, c2 + 1);
-        if (c3 < 0 || line.indexOf(delimiter, c3 + 1) >= 0) return null;
+        final int c3 = line.indexOf(',', c2 + 1);
+        if (c3 < 0 || line.indexOf(',', c3 + 1) >= 0) return null;
 
         final String timestampRaw = line.substring(0, c1).trim();
         final String instrument = line.substring(c1 + 1, c2).trim();
@@ -97,21 +101,6 @@ final class MarketRawFileReader {
             return null;
         }
         return new ParsedFields(timestampRaw, instrument, inputType, valueRaw);
-    }
-
-    private char detectDelimiter(String line) {
-        final int comma = line.indexOf(',');
-        final int tab = line.indexOf('\t');
-        if (comma < 0 && tab < 0) {
-            return 0;
-        }
-        if (comma < 0) {
-            return '\t';
-        }
-        if (tab < 0) {
-            return ',';
-        }
-        return comma < tab ? ',' : '\t';
     }
 
     private void closeReader() throws IOException {

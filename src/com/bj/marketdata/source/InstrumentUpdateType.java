@@ -1,4 +1,4 @@
-package com.bj.marketdata.entity;
+package com.bj.marketdata.source;
 
 public enum InstrumentUpdateType {
     BASE_RATE("base_rate"),

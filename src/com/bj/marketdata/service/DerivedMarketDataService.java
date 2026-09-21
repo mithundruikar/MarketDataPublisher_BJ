@@ -1,7 +1,7 @@
 package com.bj.marketdata.service;
 
-import com.bj.marketdata.entity.InstrumentUpdateType;
-import com.bj.marketdata.entity.MarketDataRawUpdate;
+import com.bj.marketdata.source.InstrumentUpdateType;
+import com.bj.marketdata.source.MarketDataRawUpdate;
 import com.bj.marketdata.source.MarketDataListener;
 
 import java.util.ArrayList;
@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 /**
  * Holds and serves derived market-data state.
@@ -17,10 +18,13 @@ import java.util.Objects;
  */
 public final class DerivedMarketDataService implements MarketDataListener {
     private static final int DEFAULT_EXPECTED_DISTINCT_INSTRUMENTS = 256;
-    private static final double LOAD_FACTOR = 0.70d;
+    private static final int LOAD_FACTOR_NUMERATOR = 70;
+    private static final int LOAD_FACTOR_DENOMINATOR = 100;
+    private static final Logger LOGGER = Logger.getLogger(DerivedMarketDataService.class.getName());
 
     private final String[] instrumentsBySlot;
     private final MarketDataUpdate[] updatesBySlot;
+    private final DerivedValueCalculator derivedValueCalculator;
     private final List<DerivedMarketDataUpdateListener> derivedUpdateListeners = new ArrayList<>(4);
     private final int slotMask;
     private final int maxDistinctInstruments;
@@ -32,14 +36,21 @@ public final class DerivedMarketDataService implements MarketDataListener {
     }
 
     public DerivedMarketDataService(final int expectedDistinctInstruments) {
+        this(expectedDistinctInstruments, new DerivedValueCalculator());
+    }
+
+    DerivedMarketDataService(final int expectedDistinctInstruments, final DerivedValueCalculator derivedValueCalculator) {
         final int tableCapacity = tableCapacityFor(expectedDistinctInstruments);
         this.instrumentsBySlot = new String[tableCapacity];
         this.updatesBySlot = new MarketDataUpdate[tableCapacity];
+        this.derivedValueCalculator = Objects.requireNonNull(derivedValueCalculator, "derivedValueCalculator");
         this.slotMask = tableCapacity - 1;
-        this.maxDistinctInstruments = Math.max(1, (int) Math.floor(tableCapacity * LOAD_FACTOR));
+        this.maxDistinctInstruments = Math.max(1, (tableCapacity * LOAD_FACTOR_NUMERATOR) / LOAD_FACTOR_DENOMINATOR);
         for (int i = 0; i < tableCapacity; i++) {
             updatesBySlot[i] = new MarketDataUpdate();
         }
+        logInfo("Initialized with instrument cache slots=" + tableCapacity
+                + ", maxDistinctInstruments=" + maxDistinctInstruments);
     }
 
     public void applyUpdate(final MarketDataRawUpdate update) {
@@ -62,6 +73,10 @@ public final class DerivedMarketDataService implements MarketDataListener {
         if (derivedUpdateListeners.isEmpty()) {
             return;
         }
+        final long derivedValue = derivedValueCalculator.derive(conflated);
+        if (derivedValue == DerivedValueCalculator.INVALID_DERIVED_VALUE) {
+            return;
+        }
 
         final DerivedMarketData derivedMarketData = new DerivedMarketData(
                 conflated.lastUpdatedMillis(),
@@ -69,7 +84,7 @@ public final class DerivedMarketDataService implements MarketDataListener {
                 conflated.baseRate(),
                 conflated.spread(),
                 conflated.adjustment(),
-                deriveValue(conflated.baseRate(), conflated.spread(), conflated.adjustment())
+                derivedValue
         );
         for (final DerivedMarketDataUpdateListener listener : derivedUpdateListeners) {
             listener.onUpdate(derivedMarketData);
@@ -111,10 +126,6 @@ public final class DerivedMarketDataService implements MarketDataListener {
         derivedUpdateListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
-    public static double deriveValue(final double baseRate, final double spread, final double adjustment) {
-        return baseRate + spread + adjustment;
-    }
-
     private int findOrAllocateSlot(final String instrument) {
         int idx = mixHash(instrument.hashCode()) & slotMask;
         while (true) {
@@ -154,7 +165,8 @@ public final class DerivedMarketDataService implements MarketDataListener {
         if (expectedDistinctInstruments < 1) {
             throw new IllegalArgumentException("expectedDistinctInstruments must be > 0");
         }
-        final int requiredCapacity = (int) Math.ceil(expectedDistinctInstruments / LOAD_FACTOR);
+        final int requiredCapacity = (int) ((expectedDistinctInstruments * (long) LOAD_FACTOR_DENOMINATOR
+                + LOAD_FACTOR_NUMERATOR - 1L) / LOAD_FACTOR_NUMERATOR);
         int capacity = 1;
         while (capacity < requiredCapacity) {
             capacity <<= 1;
@@ -167,6 +179,10 @@ public final class DerivedMarketDataService implements MarketDataListener {
 
     private static int mixHash(final int hash) {
         return hash ^ (hash >>> 16);
+    }
+
+    private static void logInfo(final String message) {
+        LOGGER.info(message);
     }
 
 }

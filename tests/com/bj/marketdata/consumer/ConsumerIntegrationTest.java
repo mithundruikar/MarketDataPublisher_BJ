@@ -1,8 +1,9 @@
 package com.bj.marketdata.consumer;
 
 import com.bj.marketdata.MarketDataPublisherApplication;
-import com.bj.marketdata.entity.InstrumentUpdateType;
-import com.bj.marketdata.entity.MarketDataRawUpdate;
+import com.bj.marketdata.source.InstrumentUpdateType;
+import com.bj.marketdata.source.MarketDataRawUpdate;
+import com.bj.marketdata.value.ScaledPrice;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
@@ -24,7 +25,8 @@ class ConsumerIntegrationTest {
     @Test
     void shouldFlowRealtimeUpdatesAfterConsumerLogon() throws Exception {
         final Properties properties = loadProperties();
-        final MarketDataPublisherApplication.Wiring wiring = MarketDataPublisherApplication.wire(properties);
+        final MarketDataPublisherApplication application = new MarketDataPublisherApplication();
+        final MarketDataPublisherApplication.Wiring wiring = application.wire(properties);
         final Thread eventLoopThread = new Thread(wiring.eventLoop(), "consumer-integration-event-loop");
         eventLoopThread.start();
 
@@ -64,7 +66,14 @@ class ConsumerIntegrationTest {
             assertEquals(1, wiring.consumerConnectionHandler().realtimeEndpointCount(), "expected one registered realtime endpoint");
 
             final MarketDataRawUpdate update =
-                    new MarketDataRawUpdate(9_999L, 1_700_000_000_000L, "integration-test", "INTEGRATION_ONLY", InstrumentUpdateType.BASE_RATE, 4.1234);
+                    new MarketDataRawUpdate(
+                            9_999L,
+                            1_700_000_000_000L,
+                            "integration-test",
+                            "INTEGRATION_ONLY",
+                            InstrumentUpdateType.BASE_RATE,
+                            ScaledPrice.parse("4.1234")
+                    );
             wiring.derivedMarketDataService().applyUpdate(update);
 
             final long receiveDeadlineNanos = System.nanoTime() + 2_000_000_000L;

@@ -1,12 +1,13 @@
 package com.bj.marketdata.service;
 
-import com.bj.marketdata.entity.InstrumentUpdateType;
+import com.bj.marketdata.source.InstrumentUpdateType;
 
 public final class MarketDataUpdate {
     private String instrument;
-    private double baseRate;
-    private double spread;
-    private double adjustment;
+    private long baseRate;
+    private boolean hasBaseRate;
+    private long spread;
+    private long adjustment;
     private long lastUpdatedMillis;
     private long version;
 
@@ -14,15 +15,19 @@ public final class MarketDataUpdate {
         return instrument;
     }
 
-    public double baseRate() {
+    public long baseRate() {
         return baseRate;
     }
 
-    public double spread() {
+    public boolean hasBaseRate() {
+        return hasBaseRate;
+    }
+
+    public long spread() {
         return spread;
     }
 
-    public double adjustment() {
+    public long adjustment() {
         return adjustment;
     }
 
@@ -34,7 +39,10 @@ public final class MarketDataUpdate {
         return version;
     }
 
-    public double derivedValue() {
+    public long derivedValue() {
+        if (!hasBaseRate) {
+            return DerivedValueCalculator.INVALID_DERIVED_VALUE;
+        }
         return baseRate + spread + adjustment;
     }
 
@@ -42,9 +50,12 @@ public final class MarketDataUpdate {
         this.instrument = instrument;
     }
 
-    boolean applyRawValue(final InstrumentUpdateType inputType, final double value, final long updatedTimeMillis) {
+    boolean applyRawValue(final InstrumentUpdateType inputType, final long value, final long updatedTimeMillis) {
         switch (inputType) {
-            case BASE_RATE -> baseRate = value;
+            case BASE_RATE -> {
+                baseRate = value;
+                hasBaseRate = true;
+            }
             case SPREAD -> spread = value;
             case ADJUSTMENT -> adjustment = value;
             default -> {

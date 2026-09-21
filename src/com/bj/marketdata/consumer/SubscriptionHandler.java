@@ -16,10 +16,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 final class SubscriptionHandler implements IOHandler, DerivedMarketDataUpdateListener {
     private static final int REQUEST_BUFFER_SIZE_BYTES = 512;
     private static final int MAX_PENDING_REALTIME_UPDATES = 4_096;
+    private static final Logger LOGGER = Logger.getLogger(SubscriptionHandler.class.getName());
 
     // This is a fixed-size ring buffer by design: it never blocks and never grows.
     // If producers outpace UDP writes, we drop the oldest queued payload and keep the newest one.
@@ -45,6 +47,7 @@ final class SubscriptionHandler implements IOHandler, DerivedMarketDataUpdateLis
 
     void registerSubscription(final String clientId, final long subscriptionId) {
         subscriptions.put(subscriptionId, new Subscription(subscriptionId, clientId));
+        logInfo("Registered subscription: subscriptionId=" + subscriptionId + ", clientId=" + clientId);
     }
 
     int subscriptionCount() {
@@ -130,9 +133,14 @@ final class SubscriptionHandler implements IOHandler, DerivedMarketDataUpdateLis
         }
         final Subscription subscription = subscriptions.get(subscriptionId);
         if (subscription == null) {
+            logInfo("Ignoring UDP registration for unknown subscriptionId=" + subscriptionId
+                    + ", remoteAddress=" + inetSocketAddress);
             return;
         }
         subscription.updateCurrentInetSocketAddress(inetSocketAddress);
+        logInfo("Registered realtime UDP endpoint: subscriptionId=" + subscriptionId
+                + ", clientId=" + subscription.clientId()
+                + ", endpoint=" + inetSocketAddress);
     }
 
     private void flushRealtimeUpdates(final DatagramChannel datagramChannel) throws IOException {
@@ -159,6 +167,7 @@ final class SubscriptionHandler implements IOHandler, DerivedMarketDataUpdateLis
             pendingRealtimeUpdates[pendingRealtimeHead] = null;
             pendingRealtimeHead = incrementRingIndex(pendingRealtimeHead);
             pendingRealtimeSize--;
+            logInfo("Realtime queue full; dropped oldest payload to keep producer path non-blocking");
         }
         pendingRealtimeUpdates[pendingRealtimeTail] = payload;
         pendingRealtimeTail = incrementRingIndex(pendingRealtimeTail);
@@ -211,5 +220,9 @@ final class SubscriptionHandler implements IOHandler, DerivedMarketDataUpdateLis
 
     private static boolean isAsciiWhitespace(final byte value) {
         return value == ' ' || value == '\n' || value == '\r' || value == '\t';
+    }
+
+    private static void logInfo(final String message) {
+        LOGGER.info(message);
     }
 }

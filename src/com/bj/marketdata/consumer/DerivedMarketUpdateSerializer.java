@@ -1,6 +1,7 @@
 package com.bj.marketdata.consumer;
 
 import com.bj.marketdata.service.DerivedMarketData;
+import com.bj.marketdata.value.ScaledPrice;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -13,7 +14,7 @@ final class DerivedMarketUpdateSerializer {
                 .append(',')
                 .append(nonNullUpdate.instrument())
                 .append(',')
-                .append(nonNullUpdate.derivedValue())
+                .append(ScaledPrice.format(nonNullUpdate.derivedValue()))
                 .append('\n');
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
