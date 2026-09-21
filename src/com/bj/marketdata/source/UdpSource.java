@@ -7,18 +7,18 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.util.Objects;
 
-public class UdpSource implements Source, IOHandler {
+public final class UdpSource implements Source, IOHandler {
+    private final String sourceName;
+    private final String udpConnect;
     private final InetSocketAddress bindAddress;
     private final EventLoop eventLoop;
     private MarketDataListener listener;
 
-    public UdpSource(InetSocketAddress bindAddress, EventLoop eventLoop) {
+    public UdpSource(String sourceName, String udpConnect, InetSocketAddress bindAddress, EventLoop eventLoop) {
+        this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
+        this.udpConnect = Objects.requireNonNull(udpConnect, "udpConnect");
         this.bindAddress = Objects.requireNonNull(bindAddress, "bindAddress");
         this.eventLoop = Objects.requireNonNull(eventLoop, "eventLoop");
-    }
-
-    public InetSocketAddress bindAddress() {
-        return bindAddress;
     }
 
     @Override
@@ -44,13 +44,5 @@ public class UdpSource implements Source, IOHandler {
     @Override
     public void onConnect(SelectionKey key) {
         // no-op skeleton
-    }
-
-    public EventLoop eventLoop() {
-        return eventLoop;
-    }
-
-    public MarketDataListener listener() {
-        return listener;
     }
 }

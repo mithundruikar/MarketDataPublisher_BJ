@@ -45,7 +45,7 @@ public final class EventLoop implements Runnable, AutoCloseable {
     @Override
     public void run() {
         while (!stopRequested.get()) {
-            for (InternalSource source : internalSources) {
+            for (final InternalSource source : internalSources) {
                 try {
                     source.read();
                 } catch (IOException e) {
@@ -55,18 +55,19 @@ public final class EventLoop implements Runnable, AutoCloseable {
 
             try {
                 selector.select(SELECT_TIMEOUT_MILLIS);
-                Set<SelectionKey> selectedKeys = selector.selectedKeys();
-                Iterator<SelectionKey> iterator = selectedKeys.iterator();
+                final Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                final Iterator<SelectionKey> iterator = selectedKeys.iterator();
                 while (iterator.hasNext()) {
-                    SelectionKey key = iterator.next();
+                    final SelectionKey key = iterator.next();
                     iterator.remove();
                     if (!key.isValid()) {
                         continue;
                     }
-                    Object attachment = key.attachment();
-                    if (!(attachment instanceof IOHandler handler)) {
+                    final Object attachment = key.attachment();
+                    if (!(attachment instanceof IOHandler)) {
                         continue;
                     }
+                    final IOHandler handler = (IOHandler) attachment;
 
                     if (key.isAcceptable()) {
                         handler.onAccept(key);
