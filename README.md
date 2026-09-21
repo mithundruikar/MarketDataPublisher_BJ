@@ -22,7 +22,7 @@ Initial skeleton for a latency-sensitive market data publisher service.
 
 4. `source`
    - Source abstraction for raw updates.
-   - `FileSource` placeholder for file-based updates.
+   - `MarketUpdateRawFileSource` placeholder for file-based updates.
    - `UdpSource` placeholder for UDP-based updates.
 
 5. `admin`
@@ -34,6 +34,7 @@ Initial skeleton for a latency-sensitive market data publisher service.
 - Skeleton only.
 - No business or networking implementation yet.
 - Interfaces and placeholder classes are created for step-by-step implementation.
+- Maven project with JUnit 5 tests (unit + integration separation).
 
 ## Test Skeleton
 
@@ -51,10 +52,12 @@ Test folders are created under `tests/com/bj/marketdata`:
 - Main test entry: `com.bj.marketdata.main.MarketDataPublisherBootstrapTest`
 - Properties file: `tests/resources/market-data-publisher-test.properties`
 
-## Compile / Run Skeleton Test
+## Build and Test (Maven)
 
 ```bash
-mkdir -p bin
-javac -d bin $(find src tests -name "*.java")
-java -cp bin com.bj.marketdata.main.MarketDataPublisherBootstrapTest
+mvn test
+mvn verify
 ```
+
+`mvn test` runs low-level unit tests.  
+`mvn verify` runs both unit tests and integration tests (`*IntegrationTest`).

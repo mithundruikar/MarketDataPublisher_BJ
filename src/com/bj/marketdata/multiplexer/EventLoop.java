@@ -4,6 +4,7 @@ import com.bj.marketdata.source.InternalSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -26,6 +27,15 @@ public final class EventLoop implements Runnable, AutoCloseable {
     public void register(SelectableChannel channel, int interestOps, IOHandler handler) throws IOException {
         channel.configureBlocking(false);
         channel.register(selector, interestOps, handler);
+        selector.wakeup();
+    }
+
+    public void updateInterestOps(final SelectableChannel channel, final int interestOps) {
+        final SelectionKey key = channel.keyFor(selector);
+        if (key == null || !key.isValid()) {
+            throw new IllegalStateException("Channel is not registered or key is invalid");
+        }
+        key.interestOps(interestOps);
         selector.wakeup();
     }
 
@@ -82,6 +92,8 @@ public final class EventLoop implements Runnable, AutoCloseable {
                         handler.onWrite(key);
                     }
                 }
+            } catch (ClosedSelectorException ignored) {
+                return;
             } catch (IOException e) {
                 throw new UncheckedIOException("Event loop selector failure", e);
             }

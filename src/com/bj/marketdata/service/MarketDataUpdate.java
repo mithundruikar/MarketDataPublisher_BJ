@@ -1,5 +1,7 @@
 package com.bj.marketdata.service;
 
+import com.bj.marketdata.entity.InstrumentUpdateType;
+
 public final class MarketDataUpdate {
     private String instrument;
     private double baseRate;
@@ -40,11 +42,11 @@ public final class MarketDataUpdate {
         this.instrument = instrument;
     }
 
-    boolean applyRawValue(final String inputType, final double value, final long updatedTimeMillis) {
+    boolean applyRawValue(final InstrumentUpdateType inputType, final double value, final long updatedTimeMillis) {
         switch (inputType) {
-            case "base_rate" -> baseRate = value;
-            case "spread" -> spread = value;
-            case "adjustment" -> adjustment = value;
+            case BASE_RATE -> baseRate = value;
+            case SPREAD -> spread = value;
+            case ADJUSTMENT -> adjustment = value;
             default -> {
                 return false;
             }

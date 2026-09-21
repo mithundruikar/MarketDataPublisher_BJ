@@ -1,5 +1,6 @@
 package com.bj.marketdata.source.file;
 
+import com.bj.marketdata.entity.InstrumentUpdateType;
 import com.bj.marketdata.entity.MarketDataRawUpdate;
 
 import java.io.BufferedReader;
@@ -57,13 +58,17 @@ final class MarketRawFileReader {
         try {
             final long timestampMs = Long.parseLong(parsed.timestampRaw());
             final double value = Double.parseDouble(parsed.valueRaw());
+            final InstrumentUpdateType updateType = InstrumentUpdateType.fromWireValue(parsed.inputType());
+            if (updateType == InstrumentUpdateType.UNKNOWN) {
+                return ReadResult.rejected(line, "invalid_input_type");
+            }
             final long sequence = ++sourceSequence;
             return ReadResult.update(new MarketDataRawUpdate(
                     sequence,
                     timestampMs,
                     sourceName,
                     parsed.instrument(),
-                    parsed.inputType(),
+                    updateType,
                     value
             ));
         } catch (NumberFormatException ex) {

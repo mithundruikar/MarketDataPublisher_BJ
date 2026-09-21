@@ -1,48 +1,43 @@
 package com.bj.marketdata.service;
 
+import com.bj.marketdata.entity.InstrumentUpdateType;
 import com.bj.marketdata.entity.MarketDataRawUpdate;
+import org.junit.jupiter.api.Test;
 
-public final class DerivedMarketDataServiceTest {
-    private DerivedMarketDataServiceTest() {
-    }
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-    public static void main(String[] args) {
-        shouldConflateByInstrumentAndTrackVersion();
-        shouldRejectUnsupportedInputType();
-    }
-
-    private static void shouldConflateByInstrumentAndTrackVersion() {
+class DerivedMarketDataServiceTest {
+    @Test
+    void shouldConflateByInstrumentAndTrackVersion() {
         final DerivedMarketDataService service = new DerivedMarketDataService(16);
 
-        service.applyUpdate(new MarketDataRawUpdate(1L, 1_000L, "file-A", "ALPHA", "base_rate", 4.0));
-        service.applyUpdate(new MarketDataRawUpdate(2L, 1_010L, "file-A", "ALPHA", "spread", 0.3));
-        service.applyUpdate(new MarketDataRawUpdate(3L, 1_020L, "file-A", "BRAVO", "base_rate", 3.5));
-        service.applyUpdate(new MarketDataRawUpdate(4L, 1_030L, "file-A", "ALPHA", "adjustment", -0.1));
+        service.applyUpdate(new MarketDataRawUpdate(1L, 1_000L, "file-A", "ALPHA", InstrumentUpdateType.BASE_RATE, 4.0));
+        service.applyUpdate(new MarketDataRawUpdate(2L, 1_010L, "file-A", "ALPHA", InstrumentUpdateType.SPREAD, 0.3));
+        service.applyUpdate(new MarketDataRawUpdate(3L, 1_020L, "file-A", "BRAVO", InstrumentUpdateType.BASE_RATE, 3.5));
+        service.applyUpdate(new MarketDataRawUpdate(4L, 1_030L, "file-A", "ALPHA", InstrumentUpdateType.ADJUSTMENT, -0.1));
 
         final MarketDataUpdate alpha = service.getState("ALPHA").orElseThrow();
-        assert closeTo(alpha.baseRate(), 4.0) : "base rate conflation failed";
-        assert closeTo(alpha.spread(), 0.3) : "spread conflation failed";
-        assert closeTo(alpha.adjustment(), -0.1) : "adjustment conflation failed";
-        assert closeTo(alpha.derivedValue(), 4.2) : "derived value calculation failed";
-        assert alpha.lastUpdatedMillis() == 1_030L : "last update millis mismatch";
-        assert alpha.version() == 3L : "version should increment per ALPHA update";
+        assertEquals(4.0, alpha.baseRate(), 1e-9, "base rate conflation failed");
+        assertEquals(0.3, alpha.spread(), 1e-9, "spread conflation failed");
+        assertEquals(-0.1, alpha.adjustment(), 1e-9, "adjustment conflation failed");
+        assertEquals(4.2, alpha.derivedValue(), 1e-9, "derived value calculation failed");
+        assertEquals(1_030L, alpha.lastUpdatedMillis(), "last update millis mismatch");
+        assertEquals(3L, alpha.version(), "version should increment per ALPHA update");
 
         final MarketDataUpdate bravo = service.getState("BRAVO").orElseThrow();
-        assert closeTo(bravo.baseRate(), 3.5) : "BRAVO base rate mismatch";
-        assert bravo.version() == 1L : "BRAVO version mismatch";
+        assertEquals(3.5, bravo.baseRate(), 1e-9, "BRAVO base rate mismatch");
+        assertEquals(1L, bravo.version(), "BRAVO version mismatch");
 
-        assert service.snapshot().size() == 2 : "expected two instrument entries";
+        assertEquals(2, service.snapshot().size(), "expected two instrument entries");
     }
 
-    private static void shouldRejectUnsupportedInputType() {
+    @Test
+    void shouldRejectUnsupportedInputType() {
         final DerivedMarketDataService service = new DerivedMarketDataService(8);
-        service.applyUpdate(new MarketDataRawUpdate(1L, 2_000L, "file-B", "CHARLIE", "invalid_type", 9.9));
+        service.applyUpdate(new MarketDataRawUpdate(1L, 2_000L, "file-B", "CHARLIE", InstrumentUpdateType.UNKNOWN, 9.9));
 
-        assert service.rejectedUpdateCount() == 1L : "unsupported input type should increment rejection count";
-        assert service.getState("CHARLIE").isEmpty() : "invalid update should not create state";
-    }
-
-    private static boolean closeTo(final double actual, final double expected) {
-        return Math.abs(actual - expected) < 1e-9;
+        assertEquals(1L, service.rejectedUpdateCount(), "unsupported input type should increment rejection count");
+        assertTrue(service.getState("CHARLIE").isEmpty(), "invalid update should not create state");
     }
 }

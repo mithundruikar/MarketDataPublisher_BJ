@@ -1,5 +1,6 @@
 package com.bj.marketdata.service;
 
+import com.bj.marketdata.entity.InstrumentUpdateType;
 import com.bj.marketdata.entity.MarketDataRawUpdate;
 import com.bj.marketdata.source.MarketDataListener;
 
@@ -44,7 +45,7 @@ public final class DerivedMarketDataService implements MarketDataListener {
             rejectedUpdateCount++;
             return;
         }
-        if (!isSupportedInputType(update.inputType())) {
+        if (update.inputType() == InstrumentUpdateType.UNKNOWN) {
             rejectedUpdateCount++;
             return;
         }
@@ -141,10 +142,4 @@ public final class DerivedMarketDataService implements MarketDataListener {
         return hash ^ (hash >>> 16);
     }
 
-    private static boolean isSupportedInputType(final String inputType) {
-        return switch (inputType) {
-            case "base_rate", "spread", "adjustment" -> true;
-            default -> false;
-        };
-    }
 }

@@ -1,5 +1,6 @@
 package com.bj.marketdata;
 
+import com.bj.marketdata.consumer.ConsumerHandler;
 import com.bj.marketdata.multiplexer.EventLoop;
 import com.bj.marketdata.service.DerivedMarketDataService;
 import com.bj.marketdata.source.UdpSource;
@@ -37,20 +38,22 @@ public final class MarketDataPublisherApplication {
 
         final EventLoop eventLoop = new EventLoop();
         final DerivedMarketDataService derivedMarketDataService = new DerivedMarketDataService();
+        final ConsumerHandler consumerHandler = new ConsumerHandler(eventLoop, properties);
         final MarketRawUpdateFileSource fileSource =
                 new MarketRawUpdateFileSource(sourceName, Path.of(readRequiredProperty(properties, "rawUpdate.file")), eventLoop);
         final UdpSource udpSource =
                 new UdpSource(sourceName, readRequiredProperty(properties, "rawUpdate.udp.connect"), DEFAULT_UDP_BIND, eventLoop);
 
         fileSource.addListener(derivedMarketDataService);
-        return new Wiring(eventLoop, derivedMarketDataService, fileSource, udpSource);
+        return new Wiring(eventLoop, derivedMarketDataService, fileSource, udpSource, consumerHandler);
     }
 
     public record Wiring(
             EventLoop eventLoop,
             DerivedMarketDataService derivedMarketDataService,
             MarketRawUpdateFileSource fileSource,
-            UdpSource udpSource
+            UdpSource udpSource,
+            ConsumerHandler consumerHandler
     ) {
     }
 

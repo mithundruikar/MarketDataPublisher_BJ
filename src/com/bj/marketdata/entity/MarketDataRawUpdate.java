@@ -5,7 +5,7 @@ public record MarketDataRawUpdate(
         long updateTimeMillis,
         String source,
         String instrument,
-        String inputType,
+        InstrumentUpdateType inputType,
         double value
 ) {
 }
