@@ -29,7 +29,7 @@ Initial skeleton for a latency-sensitive market data publisher service.
 
 - 1 hour** – Created the initial high-level design, covering separation of the event loop, sources, consumers, and service components. 
 - 1 hour** – Implemented the source injection layer, integrating the file source into the NIO event loops and providing support for UDP-based input.
-- 1 minutes** – Created the service layer and implemented the derived state management.
+- 30 minutes** – Created the service layer and implemented the derived state management.
 - 1 hour** – Designed and implemented the Consumer and Subscription components in detail.
 - 1 hour** – Wrapped up the implementation, performed testing, and completed the documentation.
 
